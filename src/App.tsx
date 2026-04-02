@@ -426,38 +426,74 @@ export default function App() {
 
             {/* 手动从菜单选 */}
             <div className="bg-white rounded-2xl p-4 shadow-sm border border-rose-100">
-              <h3 className="font-bold text-gray-700 mb-3 flex items-center gap-1">
-                <Tag size={16} className="text-blue-400" /> 手动选菜
-              </h3>
-              <div className="grid grid-cols-2 gap-2">
-                {state.dishes.slice(0, 8).map(dish => {
+              <div className="flex items-center justify-between mb-3">
+                <h3 className="font-bold text-gray-700 flex items-center gap-1">
+                  <Tag size={16} className="text-blue-400" /> 手动选菜
+                </h3>
+                <button
+                  onClick={() => setTab('dishes')}
+                  className="text-xs text-rose-500 hover:text-rose-600"
+                >
+                  全部 {state.dishes.length} 道 →
+                </button>
+              </div>
+              {/* 菜品图片网格 */}
+              <div className="grid grid-cols-4 gap-2">
+                {state.dishes.slice(0, 16).map(dish => {
                   const isSelected = todayRecord?.selectedDishes.includes(dish.id);
                   return (
                     <button
                       key={dish.id}
                       onClick={() => toggleDishSelect(dish.id)}
-                      className={`flex items-center gap-2 p-2.5 rounded-xl text-left transition-all card-hover ${
+                      className={`relative flex flex-col items-center rounded-xl overflow-hidden transition-all card-hover ${
                         isSelected
-                          ? 'bg-rose-100 border-2 border-rose-400'
-                          : 'bg-gray-50 border-2 border-transparent hover:border-rose-200'
+                          ? 'ring-2 ring-rose-400 ring-offset-1'
+                          : 'ring-1 ring-gray-100 hover:ring-rose-200'
                       }`}
                     >
-                      <span className="text-lg">{dish.emoji}</span>
-                      <div className="flex-1 min-w-0">
-                        <p className="text-sm font-medium text-gray-700 truncate">{dish.name}</p>
-                        <p className="text-xs text-gray-400">{dish.category}</p>
+                      {/* 菜品图片 */}
+                      <div className="w-full aspect-square bg-gray-100 overflow-hidden relative">
+                        {dish.image ? (
+                          <img
+                            src={dish.image}
+                            alt={dish.name}
+                            className="w-full h-full object-cover"
+                            onError={(e) => {
+                              const target = e.target as HTMLImageElement;
+                              target.style.display = 'none';
+                              target.parentElement!.style.background = 'linear-gradient(135deg, #fee2e2, #fed7aa)';
+                              const span = document.createElement('span');
+                              span.textContent = dish.emoji;
+                              span.className = 'text-2xl';
+                              span.style.position = 'absolute';
+                              span.style.top = '50%';
+                              span.style.left = '50%';
+                              span.style.transform = 'translate(-50%,-50%)';
+                              target.parentElement!.appendChild(span);
+                            }}
+                          />
+                        ) : (
+                          <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-rose-50 to-orange-50">
+                            <span className="text-2xl">{dish.emoji}</span>
+                          </div>
+                        )}
+                        {/* 已选标记 */}
+                        {isSelected && (
+                          <div className="absolute top-1 right-1 w-5 h-5 bg-rose-500 rounded-full flex items-center justify-center shadow">
+                            <Check size={11} className="text-white" strokeWidth={3} />
+                          </div>
+                        )}
                       </div>
-                      {isSelected && <Check size={14} className="text-rose-500 flex-shrink-0" />}
+                      {/* 菜名 */}
+                      <p className={`text-xs font-medium py-1 px-1 w-full text-center truncate ${
+                        isSelected ? 'text-rose-600 bg-rose-50' : 'text-gray-600'
+                      }`}>
+                        {dish.name}
+                      </p>
                     </button>
                   );
                 })}
               </div>
-              <button
-                onClick={() => setTab('dishes')}
-                className="w-full mt-2 text-center text-sm text-rose-500 hover:text-rose-600 py-1"
-              >
-                查看全部 {state.dishes.length} 道菜 →
-              </button>
             </div>
 
             {/* 今日备注 & 心情 */}
