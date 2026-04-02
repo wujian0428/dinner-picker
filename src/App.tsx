@@ -1,18 +1,170 @@
 import { useState, useEffect, useCallback } from 'react';
-import { AppState, Dish, DailyRecord, Category } from './types';
+import { AppState, Dish, DailyRecord, Category, RecipeStep } from './types';
 import {
   loadState, saveState, getTodayString, formatDate, getWeekDay,
-  randomPick, generateId, categoryEmojis, getTodayRecord
+  randomPick, generateId, categoryEmojis, getTodayRecord, difficultyColors
 } from './utils';
 import {
-  Shuffle, Plus, Trash2, Heart, BookOpen, ChefHat, Star, Tag, History, X, Check, Pencil
+  Shuffle, Plus, Trash2, Heart, BookOpen, ChefHat, Star, Tag, History, X, Check, Pencil,
+  Clock, Users, ChefHat as ChefHatIcon, BookText, ArrowLeft, Image as ImageIcon
 } from 'lucide-react';
 
+// ========== 菜谱详情弹窗 ==========
+function RecipeModal({ dish, onClose }: { dish: Dish; onClose: () => void }) {
+  const hasRecipe = dish.ingredients && dish.steps && dish.steps.length > 0;
+
+  return (
+    <div className="fixed inset-0 z-50 bg-black/60 flex items-end" onClick={onClose}>
+      <div
+        className="bg-white w-full max-w-lg mx-auto rounded-t-3xl max-h-[92vh] overflow-y-auto bounce-in"
+        onClick={e => e.stopPropagation()}
+      >
+        {/* 顶部图片 */}
+        {dish.image && (
+          <div className="relative">
+            <img
+              src={dish.image}
+              alt={dish.name}
+              className="w-full h-52 object-cover rounded-t-3xl"
+              onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
+            />
+            <button
+              onClick={onClose}
+              className="absolute top-3 right-3 w-8 h-8 bg-black/50 hover:bg-black/70 rounded-full flex items-center justify-center text-white transition-colors"
+            >
+              <X size={16} />
+            </button>
+            <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/60 to-transparent p-4">
+              <h2 className="text-xl font-bold text-white">{dish.name}</h2>
+              <div className="flex items-center gap-2 mt-1">
+                <span className="text-sm text-white/80 bg-white/20 px-2 py-0.5 rounded-full">
+                  {categoryEmojis[dish.category]} {dish.category}
+                </span>
+                {dish.tags.slice(0, 2).map(tag => (
+                  <span key={tag} className="text-sm text-white/80 bg-white/20 px-2 py-0.5 rounded-full">{tag}</span>
+                ))}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* 无图片时的标题 */}
+        {!dish.image && (
+          <div className="flex items-center justify-between p-4 border-b">
+            <div className="flex items-center gap-2">
+              <span className="text-2xl">{dish.emoji}</span>
+              <h2 className="text-xl font-bold text-gray-800">{dish.name}</h2>
+            </div>
+            <button onClick={onClose} className="text-gray-400 hover:text-gray-600">
+              <X size={20} />
+            </button>
+          </div>
+        )}
+
+        <div className="p-4">
+          {/* 简介 & 基本信息 */}
+          {dish.description && (
+            <p className="text-gray-600 text-sm mb-3">{dish.description}</p>
+          )}
+          {(dish.prepTime || dish.cookTime || dish.servings || dish.difficulty) && (
+            <div className="flex flex-wrap gap-2 mb-4">
+              {dish.prepTime && (
+                <div className="flex items-center gap-1 text-xs text-gray-500 bg-gray-50 px-3 py-1.5 rounded-full">
+                  <Clock size={12} /> 备 {dish.prepTime}
+                </div>
+              )}
+              {dish.cookTime && (
+                <div className="flex items-center gap-1 text-xs text-gray-500 bg-gray-50 px-3 py-1.5 rounded-full">
+                  <ChefHatIcon size={12} /> 烹 {dish.cookTime}
+                </div>
+              )}
+              {dish.servings && (
+                <div className="flex items-center gap-1 text-xs text-gray-500 bg-gray-50 px-3 py-1.5 rounded-full">
+                  <Users size={12} /> {dish.servings}人份
+                </div>
+              )}
+              {dish.difficulty && (
+                <div className={`text-xs px-3 py-1.5 rounded-full ${difficultyColors[dish.difficulty] || 'bg-gray-100 text-gray-600'}`}>
+                  {dish.difficulty}
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* 菜谱内容 */}
+          {hasRecipe ? (
+            <>
+              {/* 食材清单 */}
+              {dish.ingredients && dish.ingredients.length > 0 && (
+                <div className="mb-5">
+                  <h3 className="font-bold text-gray-700 flex items-center gap-1.5 mb-2">
+                    <BookText size={15} className="text-rose-400" />
+                    食材清单
+                  </h3>
+                  <div className="bg-orange-50 rounded-xl p-3">
+                    <ul className="grid grid-cols-2 gap-1.5">
+                      {dish.ingredients.map((ing, i) => (
+                        <li key={i} className="text-sm text-gray-600 flex items-start gap-1.5">
+                          <span className="text-rose-400 mt-0.5">·</span>
+                          <span>{ing}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                </div>
+              )}
+
+              {/* 步骤 */}
+              {dish.steps && dish.steps.length > 0 && (
+                <div>
+                  <h3 className="font-bold text-gray-700 flex items-center gap-1.5 mb-3">
+                    <BookText size={15} className="text-rose-400" />
+                    制作步骤
+                  </h3>
+                  <div className="space-y-4">
+                    {dish.steps.map((step: RecipeStep) => (
+                      <div key={step.step} className="bg-gray-50 rounded-xl p-3">
+                        <div className="flex items-start gap-3">
+                          <div className="flex-shrink-0 w-7 h-7 bg-rose-500 text-white rounded-full flex items-center justify-center text-sm font-bold">
+                            {step.step}
+                          </div>
+                          <div className="flex-1">
+                            <p className="font-medium text-gray-700 text-sm mb-1.5">{step.title}</p>
+                            <p className="text-gray-600 text-sm leading-relaxed">{step.description}</p>
+                            {step.image && (
+                              <img
+                                src={step.image}
+                                alt={`步骤${step.step}`}
+                                className="mt-2 w-full h-36 object-cover rounded-lg"
+                                onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
+                              />
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </>
+          ) : (
+            <div className="text-center py-8 text-gray-400">
+              <BookText size={40} className="mx-auto mb-2 opacity-40" />
+              <p className="text-sm">暂无详细菜谱</p>
+              <p className="text-xs mt-1">期待下次更新~</p>
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ========== 主应用 ==========
 type Tab = 'today' | 'dishes' | 'history';
 
 const CATEGORIES: Category[] = ['家常菜', '川菜', '粤菜', '日料', '火锅', '面食', '烧烤', '外卖', '其他'];
-
-const tagSuggestions = ['辣', '清淡', '素食', '荤菜', '快手', '下饭', '重口', '海鲜', '精致', '聚餐'];
+const tagSuggestions = ['辣', '清淡', '素菜', '荤菜', '快手', '下饭', '重口', '海鲜', '精致', '聚餐', '养生', '孩子爱'];
 
 export default function App() {
   const [state, setState] = useState<AppState>(() => loadState());
@@ -25,8 +177,9 @@ export default function App() {
   const [filterCat, setFilterCat] = useState<Category | 'all'>('all');
   const [noteInput, setNoteInput] = useState('');
   const [editingNote, setEditingNote] = useState(false);
+  const [selectedDish, setSelectedDish] = useState<Dish | null>(null);
+  const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
 
-  // 保存状态到 localStorage
   useEffect(() => {
     saveState(state);
   }, [state]);
@@ -37,11 +190,9 @@ export default function App() {
     ? state.dishes.filter(d => todayRecord.selectedDishes.includes(d.id))
     : [];
 
-  // 随机点菜 - 有抽奖动画
   const handleRandomPick = useCallback(() => {
     if (rolling || state.dishes.length === 0) return;
     setRolling(true);
-
     const candidates = state.dishes;
     let count = 0;
     const maxCount = 20;
@@ -53,7 +204,6 @@ export default function App() {
         clearInterval(interval);
         const picked = randomPick(candidates, 3);
         const pickedIds = picked.map(d => d.id);
-
         setState(prev => {
           const newRecords = prev.records.filter(r => r.date !== today);
           const newRecord: DailyRecord = {
@@ -70,7 +220,6 @@ export default function App() {
     }, 80);
   }, [rolling, state.dishes, today, todayRecord]);
 
-  // 手动选/取消某道菜
   const toggleDishSelect = (dishId: string) => {
     setState(prev => {
       const existing = prev.records.find(r => r.date === today);
@@ -95,7 +244,6 @@ export default function App() {
     });
   };
 
-  // 保存今日备注
   const saveNote = () => {
     setState(prev => {
       const existing = prev.records.find(r => r.date === today);
@@ -117,7 +265,6 @@ export default function App() {
     setEditingNote(false);
   };
 
-  // 保存心情
   const saveMood = (mood: DailyRecord['mood']) => {
     setState(prev => {
       const existing = prev.records.find(r => r.date === today);
@@ -139,7 +286,6 @@ export default function App() {
     setShowMoodPicker(false);
   };
 
-  // 添加菜品
   const handleAddDish = () => {
     if (!addForm.name.trim()) return;
     const newDish: Dish = {
@@ -156,12 +302,10 @@ export default function App() {
     setShowAddDish(false);
   };
 
-  // 删除菜品
   const deleteDish = (id: string) => {
     setState(prev => ({ ...prev, dishes: prev.dishes.filter(d => d.id !== id) }));
   };
 
-  // 切换喜爱
   const toggleLike = (id: string) => {
     setState(prev => ({
       ...prev,
@@ -187,14 +331,10 @@ export default function App() {
             <span className="text-2xl">🍜</span>
             <div>
               <h1 className="text-lg font-bold text-rose-500 leading-tight">今晚吃什么</h1>
-              <p className="text-xs text-gray-400">{formatDate(today)} {getWeekDay(today)}</p>
+              <p className="text-xs text-gray-400">{formatDate(today)} {getWeekDay(today)} · {state.dishes.length}道菜</p>
             </div>
           </div>
-          <div className="flex items-center gap-1">
-            <span className="text-rose-400 text-sm">❤️</span>
-          </div>
         </div>
-
         {/* Tab 切换 */}
         <div className="max-w-lg mx-auto px-4 pb-2 flex gap-1">
           {([
@@ -230,7 +370,6 @@ export default function App() {
                   {rolling ? rollingName : (selectedDishes.length > 0 ? '菜单已选好 🎉' : '点击随机决定')}
                 </div>
               </div>
-
               <button
                 onClick={handleRandomPick}
                 disabled={rolling}
@@ -264,12 +403,21 @@ export default function App() {
                           <p className="text-xs text-gray-400">{dish.category}</p>
                         </div>
                       </div>
-                      <button
-                        onClick={() => toggleDishSelect(dish.id)}
-                        className="text-gray-300 hover:text-rose-400 transition-colors"
-                      >
-                        <X size={16} />
-                      </button>
+                      <div className="flex items-center gap-1">
+                        <button
+                          onClick={() => setSelectedDish(dish)}
+                          className="text-rose-400 hover:bg-rose-100 p-1.5 rounded-full transition-colors text-xs flex items-center gap-0.5"
+                          title="查看菜谱"
+                        >
+                          <BookText size={14} /> 菜谱
+                        </button>
+                        <button
+                          onClick={() => toggleDishSelect(dish.id)}
+                          className="text-gray-300 hover:text-rose-400 transition-colors p-1.5"
+                        >
+                          <X size={14} />
+                        </button>
+                      </div>
                     </div>
                   ))}
                 </div>
@@ -282,7 +430,7 @@ export default function App() {
                 <Tag size={16} className="text-blue-400" /> 手动选菜
               </h3>
               <div className="grid grid-cols-2 gap-2">
-                {state.dishes.map(dish => {
+                {state.dishes.slice(0, 8).map(dish => {
                   const isSelected = todayRecord?.selectedDishes.includes(dish.id);
                   return (
                     <button
@@ -304,6 +452,12 @@ export default function App() {
                   );
                 })}
               </div>
+              <button
+                onClick={() => setTab('dishes')}
+                className="w-full mt-2 text-center text-sm text-rose-500 hover:text-rose-600 py-1"
+              >
+                查看全部 {state.dishes.length} 道菜 →
+              </button>
             </div>
 
             {/* 今日备注 & 心情 */}
@@ -319,7 +473,6 @@ export default function App() {
                   {todayRecord?.mood || '😊'}
                 </button>
               </div>
-
               {editingNote ? (
                 <div className="flex gap-2">
                   <input
@@ -376,51 +529,156 @@ export default function App() {
               })}
             </div>
 
-            {/* 菜品列表 */}
-            <div className="grid grid-cols-1 gap-2">
-              {filteredDishes.map(dish => (
-                <div key={dish.id} className="bg-white rounded-xl p-3 shadow-sm border border-gray-100 flex items-center gap-3 card-hover">
-                  <span className="text-2xl w-10 text-center">{dish.emoji}</span>
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-1.5 mb-0.5">
-                      <span className="font-medium text-gray-700 text-sm">{dish.name}</span>
-                      {dish.liked && <span className="text-rose-400 text-xs">❤️</span>}
-                    </div>
-                    <div className="flex items-center gap-1 flex-wrap">
-                      <span className="text-xs text-gray-400 bg-gray-100 px-1.5 py-0.5 rounded-full">
-                        {categoryEmojis[dish.category]} {dish.category}
-                      </span>
-                      {dish.tags.map(tag => (
-                        <span key={tag} className="text-xs text-orange-500 bg-orange-50 px-1.5 py-0.5 rounded-full">
-                          {tag}
-                        </span>
-                      ))}
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-1">
-                    <button
-                      onClick={() => toggleLike(dish.id)}
-                      className={`p-1.5 rounded-full transition-all ${dish.liked ? 'text-rose-400' : 'text-gray-300'}`}
-                    >
-                      <Heart size={16} fill={dish.liked ? 'currentColor' : 'none'} />
-                    </button>
-                    <button
-                      onClick={() => deleteDish(dish.id)}
-                      className="p-1.5 rounded-full text-gray-300 hover:text-red-400 transition-colors"
-                    >
-                      <Trash2 size={16} />
-                    </button>
-                  </div>
-                </div>
-              ))}
-
-              {filteredDishes.length === 0 && (
-                <div className="text-center py-12 text-gray-400">
-                  <div className="text-4xl mb-2">🍽️</div>
-                  <p className="text-sm">还没有菜品，快添加吧！</p>
-                </div>
-              )}
+            {/* 切换视图 & 数量 */}
+            <div className="flex items-center justify-between">
+              <p className="text-xs text-gray-400">{filteredDishes.length} 道菜</p>
+              <div className="flex gap-1">
+                <button
+                  onClick={() => setViewMode('grid')}
+                  className={`p-1.5 rounded-lg transition-colors ${viewMode === 'grid' ? 'bg-rose-100 text-rose-500' : 'text-gray-400'}`}
+                  title="网格视图"
+                >
+                  <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
+                    <rect x="1" y="1" width="6" height="6" rx="1"/>
+                    <rect x="9" y="1" width="6" height="6" rx="1"/>
+                    <rect x="1" y="9" width="6" height="6" rx="1"/>
+                    <rect x="9" y="9" width="6" height="6" rx="1"/>
+                  </svg>
+                </button>
+                <button
+                  onClick={() => setViewMode('list')}
+                  className={`p-1.5 rounded-lg transition-colors ${viewMode === 'list' ? 'bg-rose-100 text-rose-500' : 'text-gray-400'}`}
+                  title="列表视图"
+                >
+                  <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
+                    <rect x="1" y="2" width="14" height="2" rx="1"/>
+                    <rect x="1" y="7" width="14" height="2" rx="1"/>
+                    <rect x="1" y="12" width="14" height="2" rx="1"/>
+                  </svg>
+                </button>
+              </div>
             </div>
+
+            {/* 菜品网格视图 */}
+            {viewMode === 'grid' && (
+              <div className="grid grid-cols-2 gap-3">
+                {filteredDishes.map(dish => (
+                  <div
+                    key={dish.id}
+                    className="bg-white rounded-2xl overflow-hidden shadow-sm border border-gray-100 card-hover"
+                    onClick={() => setSelectedDish(dish)}
+                  >
+                    {dish.image ? (
+                      <div className="relative h-28 overflow-hidden">
+                        <img
+                          src={dish.image}
+                          alt={dish.name}
+                          className="w-full h-full object-cover"
+                          onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
+                        />
+                        <div className="absolute inset-0 bg-gradient-to-t from-black/30 to-transparent" />
+                        <button
+                          onClick={(e) => { e.stopPropagation(); toggleLike(dish.id); }}
+                          className={`absolute top-1.5 right-1.5 w-6 h-6 rounded-full flex items-center justify-center transition-colors ${
+                            dish.liked ? 'bg-rose-500 text-white' : 'bg-white/70 text-gray-400'
+                          }`}
+                        >
+                          <Heart size={12} fill={dish.liked ? 'currentColor' : 'none'} />
+                        </button>
+                      </div>
+                    ) : (
+                      <div className="h-20 flex items-center justify-center bg-gradient-to-br from-rose-50 to-orange-50">
+                        <span className="text-3xl">{dish.emoji}</span>
+                      </div>
+                    )}
+                    <div className="p-2.5">
+                      <p className="font-medium text-gray-700 text-sm truncate">{dish.name}</p>
+                      <div className="flex items-center justify-between mt-1">
+                        <span className="text-xs text-gray-400">{categoryEmojis[dish.category]} {dish.category}</span>
+                        {dish.difficulty && (
+                          <span className={`text-xs px-1.5 py-0.5 rounded-full ${difficultyColors[dish.difficulty]}`}>
+                            {dish.difficulty}
+                          </span>
+                        )}
+                      </div>
+                      {dish.cookTime && (
+                        <p className="text-xs text-gray-400 mt-0.5 flex items-center gap-1">
+                          <Clock size={10} /> {dish.cookTime}
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {/* 菜品列表视图 */}
+            {viewMode === 'list' && (
+              <div className="space-y-2">
+                {filteredDishes.map(dish => (
+                  <div
+                    key={dish.id}
+                    className="bg-white rounded-xl p-3 shadow-sm border border-gray-100 flex items-center gap-3 card-hover"
+                    onClick={() => setSelectedDish(dish)}
+                  >
+                    {dish.image ? (
+                      <img
+                        src={dish.image}
+                        alt={dish.name}
+                        className="w-16 h-16 rounded-xl object-cover flex-shrink-0"
+                        onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
+                      />
+                    ) : (
+                      <div className="w-16 h-16 rounded-xl bg-gradient-to-br from-rose-50 to-orange-50 flex items-center justify-center flex-shrink-0">
+                        <span className="text-2xl">{dish.emoji}</span>
+                      </div>
+                    )}
+                    <div className="flex-1 min-w-0">
+                      <p className="font-medium text-gray-700 text-sm">{dish.name}</p>
+                      <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
+                        <span className="text-xs text-gray-400 bg-gray-100 px-1.5 py-0.5 rounded-full">
+                          {categoryEmojis[dish.category]} {dish.category}
+                        </span>
+                        {dish.tags.slice(0, 2).map(tag => (
+                          <span key={tag} className="text-xs text-orange-500 bg-orange-50 px-1.5 py-0.5 rounded-full">{tag}</span>
+                        ))}
+                      </div>
+                      {dish.cookTime && (
+                        <p className="text-xs text-gray-400 mt-0.5 flex items-center gap-1">
+                          <Clock size={10} /> {dish.cookTime}
+                        </p>
+                      )}
+                    </div>
+                    <div className="flex items-center gap-1 flex-shrink-0">
+                      {dish.ingredients && dish.steps && (
+                        <span className="text-xs text-rose-400 bg-rose-50 px-2 py-1 rounded-full flex items-center gap-0.5">
+                          <BookText size={11} /> 菜谱
+                        </span>
+                      )}
+                      <button
+                        onClick={(e) => { e.stopPropagation(); toggleLike(dish.id); }}
+                        className={`p-1.5 rounded-full transition-all ${dish.liked ? 'text-rose-400' : 'text-gray-300'}`}
+                      >
+                        <Heart size={15} fill={dish.liked ? 'currentColor' : 'none'} />
+                      </button>
+                      <button
+                        onClick={(e) => { e.stopPropagation(); deleteDish(dish.id); }}
+                        className="p-1.5 rounded-full text-gray-300 hover:text-red-400 transition-colors"
+                      >
+                        <Trash2 size={15} />
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {filteredDishes.length === 0 && (
+              <div className="text-center py-12 text-gray-400">
+                <div className="text-4xl mb-2">🍽️</div>
+                <p className="text-sm">还没有菜品，快添加吧！</p>
+              </div>
+            )}
           </div>
         )}
 
@@ -447,8 +705,14 @@ export default function App() {
                     </div>
                     <div className="flex flex-wrap gap-1.5 mb-2">
                       {dishes.length > 0 ? dishes.map(dish => (
-                        <span key={dish.id} className="text-xs bg-rose-50 text-rose-600 px-2 py-1 rounded-full">
+                        <span key={dish.id} className="text-xs bg-rose-50 text-rose-600 px-2 py-1 rounded-full flex items-center gap-1">
                           {dish.emoji} {dish.name}
+                          <button
+                            onClick={() => setSelectedDish(dish)}
+                            className="text-rose-400 hover:text-rose-600"
+                          >
+                            <BookText size={10} />
+                          </button>
                         </span>
                       )) : (
                         <span className="text-xs text-gray-400">当天未选菜</span>
@@ -471,7 +735,7 @@ export default function App() {
       {tab === 'dishes' && (
         <button
           onClick={() => setShowAddDish(true)}
-          className="fixed bottom-6 right-6 w-14 h-14 bg-gradient-to-br from-rose-400 to-orange-400 text-white rounded-full shadow-lg hover:shadow-xl flex items-center justify-center transition-all hover:scale-105 active:scale-95"
+          className="fixed bottom-6 right-6 w-14 h-14 bg-gradient-to-br from-rose-400 to-orange-400 text-white rounded-full shadow-lg hover:shadow-xl flex items-center justify-center transition-all hover:scale-105 active:scale-95 z-20"
         >
           <Plus size={24} />
         </button>
@@ -488,7 +752,6 @@ export default function App() {
               <h3 className="font-bold text-gray-700 text-lg">添加菜品</h3>
               <button onClick={() => setShowAddDish(false)} className="text-gray-400"><X size={20} /></button>
             </div>
-
             <div className="space-y-3">
               <div className="flex gap-2">
                 <div className="w-14">
@@ -507,7 +770,6 @@ export default function App() {
                   autoFocus
                 />
               </div>
-
               <div>
                 <label className="text-xs text-gray-500 mb-1 block">分类</label>
                 <div className="flex flex-wrap gap-1.5">
@@ -526,7 +788,6 @@ export default function App() {
                   ))}
                 </div>
               </div>
-
               <div>
                 <label className="text-xs text-gray-500 mb-1 block">标签（点击添加）</label>
                 <div className="flex flex-wrap gap-1.5 mb-2">
@@ -548,7 +809,6 @@ export default function App() {
                   ))}
                 </div>
               </div>
-
               <button
                 onClick={handleAddDish}
                 disabled={!addForm.name.trim()}
@@ -584,6 +844,11 @@ export default function App() {
             </div>
           </div>
         </div>
+      )}
+
+      {/* 菜谱详情弹窗 */}
+      {selectedDish && (
+        <RecipeModal dish={selectedDish} onClose={() => setSelectedDish(null)} />
       )}
     </div>
   );
